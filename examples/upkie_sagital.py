@@ -31,8 +31,6 @@ class CustomFunction(aligator.StageFunction):
 
 class TwistModelExplicit(aligator.dynamics.ExplicitDynamicsModel):
     def __init__(self, space, nu, dt: float):
-        B = np.eye(nu)
-        self.B = B
         self.dt = dt
         super().__init__(space, nu)
 
@@ -51,18 +49,16 @@ class TwistModelExplicit(aligator.dynamics.ExplicitDynamicsModel):
     def dForward(self, x, u, data: aligator.dynamics.ExplicitDynamicsData):
         rdot , phidot, theta, thetadot = x
         rdotdot, phidotdot = u
-        thetadotdot = np.sin(theta)*g/l - np.cos(theta)*rdotdot/l
-
-
-
-        Jx = data.Jx
-        Ju = data.Ju
-        v_ = self.dt * self.B @ u
-        dv_du = self.dt * self.B
-
-        self.space.Jintegrate(x, v_, Jx, 0)
-        Jxnext_dv = self.space.Jintegrate(x, v_, 1)
-        Ju[:, :] = Jxnext_dv @ dv_du
+        J_x = np.eye(4)
+        J_x[3,2] = self.dt
+        dthetadot_dthetadotdot = self.dt  * (np.cos(theta) * g/l + np.sin(theta) * rdotdot/l)
+        J_x[3,3] = dthetadot_dthetadotdot
+        J_u = np.zeros((2,4))
+        J_u[0,0] = self.dt
+        J_u[1,1] = self.dt
+        J_u[0,3] = -self.dt * np.cos(theta)/l
+        data.J_x = J_x
+        data.J_u = J_u
 
 
 def test_abstract():
