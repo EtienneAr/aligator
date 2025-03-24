@@ -22,9 +22,9 @@ class CustomFunction(aligator.StageFunction):
 class UpkieDynamics(aligator.dynamics.ExplicitDynamicsModel):
     #state = (rdot, phidot, theta, thetadot)
 
-    def __init__(self, dt: float):
+    def __init__(self,space, dt: float):
         self.dt = dt
-        super().__init__(4, 2)
+        super().__init__(space, 2)
 
     def __getinitargs__(self):
         return (self.space, self.nu, self.dt)
@@ -57,7 +57,7 @@ def test_controller():
     x0 =np.array([0,0,np.pi/6,0])
 
     cost = aligator.QuadraticStateCost(space, 2, np.zeros(4), np.eye(4))
-    dynamics = UpkieDynamics(0.01)
+    dynamics = UpkieDynamics(space,0.01)
     stage = aligator.StageModel(cost, dynamics)
 
     stages = [stage, ]*100
