@@ -51,40 +51,38 @@ class UpkieDynamics(aligator.dynamics.ExplicitDynamicsModel):
         data.J_x = J_x
         data.J_u = J_u
 
-def test_custom_controlbox():
-    space = aligator.manifolds.SE2()
+def test_controller():
+    space = aligator.manifolds.VectorSpace(4)
 
-    x0 = space.rand()
-    u0 = np.random.randn(nu)
+    x0 =np.array([0,0,np.pi/6,0])
 
-    fun.evaluate(x0, u0, data1)
-    fun.computeJacobians(x0, u0, data1)
-    print(data1.value)
-    print(data1.Ju)
-
-    # expected behavior: initial value of vhp_buffer is 0
-    assert np.allclose(data1.vhp_buffer, 0.0)
-
-    rdm = np.random.randn(*data1.vhp_buffer.shape)
-    data1.vhp_buffer[:, :] = rdm
-    fun.computeVectorHessianProducts(x0, u0, lbd0, data1)
-    # expected behavior: unimplemented computeVectorHessianProducts does nothing.
-    assert np.allclose(data1.vhp_buffer, rdm)
-
-    cost = aligator.QuadraticStateCost(space, nu, space.neutral(), np.eye(ndx))
-    dynamics = UpkieDynamics(0.1)
+    cost = aligator.QuadraticStateCost(space, 2, np.zeros(4), np.eye(4))
+    dynamics = UpkieDynamics(0.01)
     stage = aligator.StageModel(cost, dynamics)
-    stage.addConstraint(fun, aligator.constraints.EqualityConstraintSet())
-    data = stage.createData()
-    stage.evaluate(x0, u0, x0, data)
 
-    stages = [stage, stage, stage]
+    stages = [stage, ]*100
     prob = aligator.TrajOptProblem(x0, stages, cost)
     pd = aligator.TrajOptData(prob)
     print(pd)
+    mu_init = 1e-8
+    verbose = aligator.VerboseLevel.VERBOSE
+    TOL = 1e-6
+    MAX_ITER = 300
+    solver = aligator.SolverProxDDP(TOL, mu_init, max_iters=MAX_ITER, verbose=verbose)
+    solver.bcl_params.mu_lower_bound = 1e-11
+    callback = aligator.HistoryCallback(solver)
+    solver.registerCallback("his", callback)
+
+    u0 = np.zeros(2)
+    us_i = [u0] * 100
+    xs_i = aligator.rollout(dynamics, x0, us_i)
+
+    solver.setup(prob)
+    solver.run(prob, xs_i, us_i)
+    res = solver.results
+    print(res)
+
 
 
 if __name__ == "__main__":
-    import sys
-
-    sys.exit(pytest.main(sys.argv))
+    test_controller()
