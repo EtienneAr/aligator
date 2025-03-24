@@ -1,7 +1,5 @@
 import aligator
 import numpy as np
-import pytest
-
 
 class CustomFunction(aligator.StageFunction):
     def __init__(self, space: aligator.manifolds.ManifoldAbstract, nu):
