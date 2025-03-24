@@ -1,17 +1,8 @@
 
-#state = (rdot, phidot, theta, thetadot)
 import numpy as np
 import aligator
 g= 9.8
 l = 0.6
-
-
-
-
-import aligator
-import numpy as np
-import pytest
-
 
 class CustomFunction(aligator.StageFunction):
     def __init__(self, space: aligator.manifolds.ManifoldAbstract, nu):
@@ -28,11 +19,12 @@ class CustomFunction(aligator.StageFunction):
     def computeJacobians(self, x, u, data: aligator.StageFunctionData):
         data.Jx[:] = self.space.Jdifference(x, self.space.neutral(), 0)
 
+class UpkieDynamics(aligator.dynamics.ExplicitDynamicsModel):
+    #state = (rdot, phidot, theta, thetadot)
 
-class TwistModelExplicit(aligator.dynamics.ExplicitDynamicsModel):
-    def __init__(self, space, nu, dt: float):
+    def __init__(self, dt: float):
         self.dt = dt
-        super().__init__(space, nu)
+        super().__init__(4, 2)
 
     def __getinitargs__(self):
         return (self.space, self.nu, self.dt)
@@ -44,7 +36,6 @@ class TwistModelExplicit(aligator.dynamics.ExplicitDynamicsModel):
                 phidot + phidotdot*self.dt,
                 theta + thetadot*self.dt,
                 thetadot + self.dt * (np.sin(theta)*g/l - np.cos(theta)*rdotdot/l))
-
 
     def dForward(self, x, u, data: aligator.dynamics.ExplicitDynamicsData):
         rdot , phidot, theta, thetadot = x
@@ -60,26 +51,9 @@ class TwistModelExplicit(aligator.dynamics.ExplicitDynamicsModel):
         data.J_x = J_x
         data.J_u = J_u
 
-
-def test_abstract():
-    space = aligator.manifolds.SE2()
-    ndx = space.ndx
-    nu = 3
-    nr = 1
-    fun = aligator.StageFunction(ndx, nu, nr)
-    data = fun.createData()
-    print(data)
-
-
 def test_custom_controlbox():
     space = aligator.manifolds.SE2()
-    ndx = space.ndx
-    nu = 3
 
-    fun = CustomFunction(space, nu)
-    data1: aligator.StageFunctionData = fun.createData()
-
-    lbd0 = np.zeros(fun.nr)
     x0 = space.rand()
     u0 = np.random.randn(nu)
 
@@ -98,7 +72,7 @@ def test_custom_controlbox():
     assert np.allclose(data1.vhp_buffer, rdm)
 
     cost = aligator.QuadraticStateCost(space, nu, space.neutral(), np.eye(ndx))
-    dynamics = TwistModelExplicit(space, nu, 0.1)
+    dynamics = UpkieDynamics(0.1)
     stage = aligator.StageModel(cost, dynamics)
     stage.addConstraint(fun, aligator.constraints.EqualityConstraintSet())
     data = stage.createData()
